@@ -1,0 +1,547 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+        "Description": "ECS Cluster",
+        "Metadata": {
+    
+        },
+        "Parameters": {
+        
+        },
+        "Mappings": {
+    
+        },
+        "Conditions": {
+    
+        },
+        "Resources": {
+            "vpc": {
+                "Type": "AWS::EC2::VPC",
+                "Properties": {
+                    "CidrBlock": "10.0.0.0/16",
+                    "EnableDnsSupport": "true",
+                    "EnableDnsHostnames": "true",
+                    "Tags": [
+                        {
+                            "Key": "Name",
+                            "Value": "vpc"
+                        }
+                    ]
+                } 
+            },
+            "subnet": {
+                "Type": "AWS::EC2::Subnet",
+                "Properties": {
+                    "VpcId": {
+                        "Ref": "vpc"
+                    },
+                    "CidrBlock": "10.0.0.0/24",
+                    "AvailabilityZone": "eu-west-1a",
+                    "Tags": [
+                        {
+                            "Key": "Name",
+                            "Value": "subnet"
+                        }
+                    ]
+                }
+            },
+            "routetable": {
+                "Type": "AWS::EC2::RouteTable",
+                "Properties": {
+                    "VpcId": {
+                        "Ref": "vpc"
+                    },
+                    "Tags": [
+                        {
+                            "Key": "Name",
+                            "Value": "routetable"
+                        }
+                    ]
+                }
+            },
+            "internetgateway": {
+                "Type": "AWS::EC2::InternetGateway",
+                "Properties": {
+                    "Tags": [
+                        {
+                            "Key": "Name",
+                            "Value": "internetgateway"
+                        }
+                    ]
+                }
+            },
+            "routetableassociation": {
+                "Type": "AWS::EC2::VPCGatewayAttachment",
+                "Properties": {
+                    "VpcId": {
+                        "Ref": "vpc"
+                    },
+                    "InternetGatewayId": {
+                        "Ref": "internetgateway"
+                    }
+                }
+            },
+            "route": {
+                "Type": "AWS::EC2::Route",
+                "Properties": {
+                    "RouteTableId": {
+                        "Ref": "routetable"
+                    },
+                    "DestinationCidrBlock": "0.0.0.0/0",
+                    "GatewayId": {
+                        "Ref": "internetgateway"
+                    }
+                }
+            },
+            "routetableassociation2": {
+                "Type": "AWS::EC2::SubnetRouteTableAssociation",
+                "Properties": {
+                    "SubnetId": {
+                        "Ref": "subnet"
+                    },
+                    "RouteTableId": {
+                        "Ref": "routetable"
+                    }
+                }
+            },
+            "ESCCluster": {
+                "Type": "AWS::ECS::Cluster",
+                "Properties": {
+                    "ClusterName": "ESCCluster",
+                    "Tags": [
+                        {
+                            "Key": "Name",
+                            "Value": "ESCCluster"
+                        }
+                    ]
+                }
+            },
+            "service": {
+                "Type": "AWS::ECS::Service",
+                "Properties": {
+                    "DesiredCount": "1",
+                    "Cluster": {
+                        "Ref": "ESCCluster"
+                    },
+                    "TaskDefinition": {
+                        "Ref": "taskdefinition"
+                    },
+                    "LoadBalancers": [
+                        {
+                            "ContainerName": "web",
+                            "ContainerPort": "80",
+                            "LoadBalancerName": {
+                                "Ref": "elb"
+                            }
+                        }
+                    ],
+                    "Role": {
+                        "Ref": "ECSRole"
+                    },
+                    "Tags": [
+                        {
+                            "Key": "Name",
+                            "Value": "ESC"
+                        }
+                    ]
+                }
+            },
+            "taskdefinition": {
+                "Type": "AWS::ECS::TaskDefinition",
+                "Properties": {
+                    "ContainerDefinitions": [
+                        {
+                            "Name": "web",
+                            "Image": "nginx:latest",
+                            "Memory": "128",
+                            "CPU": "10",
+                            "PortMappings": [
+                                {
+                                    "ContainerPort": "80",
+                                    "HostPort": "80"
+                                }
+                            ],
+                            "Essential": "true"
+                        }
+                    ],
+                    "Volumes": [
+                        {
+                            "Name": "vol",
+                            "Host": {
+                                "SourcePath": "/var/html/nginx"
+                            }
+                        }
+                    ],
+                    "Tags": [
+                        {
+                            "Key": "Name",
+                            "Value": "ESC"
+                        }
+                    ]
+                }
+            },
+            "serviceapache": {
+                "Type": "AWS::ECS::Service",
+                "Properties": {
+                    "Cluster": {
+                        "Ref": "ESCCluster"
+                    },
+                    "DesiredCount": "1",
+                    "TaskDefinition": {
+                        "Ref": "taskdefinitionapache"
+                    }
+                }
+            },
+            "taskdefinitionapache": {
+                "Type": "AWS::ECS::TaskDefinition",
+                "Properties": {
+                    "ContainerDefinitions": [
+                        {
+                            "Name": "apache",
+                            "Image": "httpd:latest",
+                            "Memory": "128",
+                            "PortMappings": [
+                                {
+                                    "ContainerPort": "88",
+                                    "HostPort": "88"
+                                }
+                            ],
+                            "Essential": "true"
+                        }
+                    ],
+                    "Volumes": [
+                        {
+                            "Name": "vol",
+                            "Host": {
+                                "SourcePath": "/var/html/apache"
+                            }
+                        }
+                    ]
+                }
+            },
+            "servicememcached": {
+                "Type": "AWS::ECS::Service",
+                "Properties": {
+                    "DesiredCount": "1",
+                    "Cluster": {
+                        "Ref": "ESCCluster"
+                    },
+                    "TaskDefinition": {
+                        "Ref": "taskdefinitionmemcached"
+                    }
+                }
+            },
+            "taskdefinitionmemcached": {
+                "Type": "AWS::ECS::TaskDefinition",
+                "Properties": {
+                    "ContainerDefinitions": [
+                        {
+                            "Name": "memcached",
+                            "Image": "memcached:latest",
+                            "Memory": "128",
+                            "PortMappings": [
+                                {
+                                    "ContainerPort": "11211",
+                                    "HostPort": "11211"
+                                }
+                            ],
+                            "Essential": "true"
+                        }
+                    ],
+                    "Volumes": [
+                        {
+                            "Name": "vol",
+                            "Host": {
+                                "SourcePath": "/tmp"
+                            }
+                        }
+                    ]
+                }
+            },
+            "elb": {
+                "Type": "AWS::ElasticLoadBalancing::LoadBalancer",
+                "Properties": {
+                    "LoadBalancerName": "ESC",
+                    "Listeners": [
+                        {
+                            "Protocol": "HTTP",
+                            "LoadBalancerPort": "80",
+                            "InstancePort": "80"
+                        }
+                    ],
+                    "Scheme": "internet-facing",
+                    "SecurityGroups": [
+                        {
+                            "Ref": "sg"
+                        }
+                    ],
+                    "Subnets": [
+                        {
+                            "Ref": "subnet"
+                        }
+                    ],
+                    "Tags": [
+                        {
+                            "Key": "Name",
+                            "Value": "ESC"
+                        }
+                    ]
+                }
+            },
+            "sg": {
+                "Type": "AWS::EC2::SecurityGroup",
+                "Properties": {
+                    "GroupDescription": "ESC Security Group",
+                    "VpcId": {
+                        "Ref": "vpc"
+                    }
+                }
+            },
+            "sghttp": {
+                "Type": "AWS::EC2::SecurityGroupIngress",
+                "Properties": {
+                    "GroupId": {
+                        "Ref": "sg"
+                    },
+                    "IpProtocol": "tcp",
+                    "FromPort": "80",
+                    "ToPort": "80",
+                    "CidrIp": "0.0.0.0/0"
+                }
+            },
+            "sgssh": {
+                "Type": "AWS::EC2::SecurityGroupIngress",
+                "Properties": {
+                    "GroupId": {
+                        "Ref": "sg"
+                    },
+                    "IpProtocol": "tcp",
+                    "FromPort": "22",
+                    "ToPort": "22",
+                    "CidrIp": "0.0.0.0/0"
+                }
+            },
+            "sgLB": {
+                "Type": "AWS::EC2::SecurityGroupIngress",
+                "Properties": {
+                    "GroupId": {
+                        "Ref": "sg"
+                    },
+                    "IpProtocol": "tcp",
+                    "FromPort": "31000",
+                    "ToPort": "61000",
+                    "SourceSecurityGroupId": {
+                        "Ref": "sg"
+                    }
+                }
+            },
+            "sgegress": {
+                "Type": "AWS::EC2::SecurityGroupEgress",
+                "Properties": {
+                    "GroupId": {
+                        "Ref": "sg"
+                    },
+                    "IpProtocol": "-1",
+                    "CidrIp": "0.0.0.0/0"
+                }
+            },
+            "ECSRole": {
+                "Type": "AWS::IAM::Role",
+                "Properties": {
+                    "AssumeRolePolicyDocument": {
+                        "Version": "2008-10-17",
+                        "Statement": [
+                            {
+                                "Sid": "",
+                                "Effect": "Allow",
+                                "Principal": {
+                                    "Service": "ecs.amazonaws.com"
+                                },
+                                "Action": "sts:AssumeRole"
+                            }
+                        ]
+                    },
+                    "ManagedPolicyArns": [
+                        "arn:aws:iam::aws:policy/service-role/AmazonEC2ContainerServiceRole"
+                    ]
+                }
+            },
+            "launchconfiguration": {
+                "Type": "AWS::AutoScaling::LaunchConfiguration",
+                "Properties": {
+                    "ImageId": "ami-044fb3b709f19cb4a",
+                    "InstanceType": "t2.micro",
+                    "IamInstanceProfile": {
+                        "Ref": "EC2InstanceProfile"
+                    },
+                    "KeyName": "tf_key",
+                    "SecurityGroups": [
+                        {
+                            "Ref": "sg"
+                        }
+                    ],
+                    "UserData": {
+                        "Fn::Base64": {
+                            "Fn::Join": [
+                                "",
+                                [
+                                    "#!/bin/bash\n",
+                                    "echo ECS_CLUSTER=ESCCluster >> /etc/ecs/ecs.config\n"
+    
+                                ]
+                            ]
+                        }
+                    }
+                }
+            },
+            "autoscalinggroup": {
+                "Type": "AWS::AutoScaling::AutoScalingGroup",
+                "Properties": {
+                    "Cooldown": "300",
+                    "DesiredCapacity": "1",
+                    "HealthCheckGracePeriod": "300",
+                    "HealthCheckType": "EC2",
+                    "LaunchConfigurationName": {
+                        "Ref": "launchconfiguration"
+                    },
+                    "LoadBalancerNames": [
+                        {
+                            "Ref": "elb"
+                        }
+                    ],
+                    "MaxSize": "2",
+                    "MinSize": "1",
+                    "VPCZoneIdentifier": [
+                        {
+                            "Ref": "subnet"
+                        }
+                    ]
+                }
+            },
+            "EC2Role": {
+                "Type": "AWS::IAM::Role",
+                "Properties": {
+                    "AssumeRolePolicyDocument": {
+                        "Version": "2012-10-17",
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Principal": {
+                                    "Service": [
+                                        "ec2.amazonaws.com"
+                                    ]
+                                },
+                                "Action": "sts:AssumeRole"
+                            }
+                        ]
+                    },
+                    "Path": "/",
+                    "Policies": [
+                        {
+                            "PolicyName": "EC2Policy",
+                            "PolicyDocument": {
+                                "Version": "2012-10-17",
+                                "Statement": [
+                                    {
+                                        "Effect": "Allow",
+                                        "Action": [
+                                            "ecs:CreateCluster",
+                                            "ecs:RegisterContainerInstance",
+                                            "ecs:DeregisterContainerInstance",
+                                            "ecs:DiscoverPollEndpoint",
+                                            "ecs:Submit*",
+                                            "ecr:*",
+                                            "ecs:Poll",
+                                            "ecs:StartTelemetrySession",
+                                            "ec2:AuthorizeSecurityGroupIngress",
+                                            "ec2:Describe*",
+                                            "elasticloadbalancing:DeregisterInstancesFromLoadBalancer",
+                                            "elasticloadbalancing:DeregisterTargets",
+                                            "elasticloadbalancing:Describe*",
+                                            "elasticloadbalancing:RegisterInstancesWithLoadBalancer",
+                                            "elasticloadbalancing:RegisterTargets"
+                                        ],
+                                        "Resource": "*"
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            },
+            "EC2InstanceProfile": {
+                "Type": "AWS::IAM::InstanceProfile",
+                "Properties": {
+                    "Path": "/",
+                    "Roles": [
+                        {
+                            "Ref": "EC2Role"
+                        }
+                    ]
+                }
+            },
+    
+            "ElasticCacheSecurityGroup": {
+                "Type": "AWS::EC2::SecurityGroup",
+                "Properties": {
+                    "GroupDescription": "ElasticCacheSecurityGroup",
+                    "VpcId": {
+                        "Ref": "vpc"
+                    },
+                    "SecurityGroupIngress": {
+                        "IpProtocol": "tcp",
+                        "FromPort": 6379,
+                        "ToPort": 6379,
+                        "SourceSecurityGroupId": {
+                            "Ref": "sg"
+                        }
+                    }
+                }
+            },
+            "ElasticCache": {
+                "Type": "AWS::ElastiCache::CacheCluster",
+                "Properties": {
+                    "CacheNodeType": "cache.t2.micro",
+                    "Engine": "redis",
+                    "NumCacheNodes": "1",
+                    "CacheSubnetGroupName": {
+                        "Ref": "ElasticSubnetGroup"
+                    },
+                    "VpcSecurityGroupIds": [
+                        {
+                            "Fn::GetAtt": [
+                                "ElasticCacheSecurityGroup",
+                                "GroupId"
+                            ]
+                        }
+                    ]
+                }
+            },
+            "ElasticSubnetGroup": {
+                "Type": "AWS::ElastiCache::SubnetGroup",
+                "Properties": {
+                    "CacheSubnetGroupName": "ElasticSubnetGroup",
+                    "Description": "ElasticSubnetGroup",
+                    "SubnetIds": [
+                        {
+                            "Ref": "subnet"
+                        }
+                    ]
+                }
+            },
+            "RDSInstance": {
+                "Type": "AWS::RDS::DBInstance",
+                "Properties": {
+                    "DBName": "testdb",
+                    "DBInstanceClass": "db.t3.micro",
+                    "Engine": "postgres",
+                    "MasterUsername": "root",
+                    "MasterUserPassword": "MyTmpPassExample1!234",
+                    "AllocatedStorage": "5"
+                }
+            }
+    
+        },
+        "Outputs": {
+    
+        }
+    }
