@@ -131,9 +131,9 @@ def migrate_images_to_modern(dbconn, old_bucket, modern_bucket,
 
 @click.command()
 @click.option('--dbconn', help='Database connection string', required=True)
-@click.option('--old_bucket', default="sketch-legacy-s3",
+@click.option('--old_bucket', default="legacy-s3",
               help='Old S3 bucket name')
-@click.option('--modern_bucket', default="sketch-production-s3",
+@click.option('--modern_bucket', default="production-s3",
               help='New S3 bucket name')
 @click.option('--delete_old_images', default=False,
               help='If True delete files from old S3 bucket')
